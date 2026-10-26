@@ -1,0 +1,29 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+
+# IDE and user-specific files
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Signing and local configuration
+*.pfx
+*.p12
+.env
+.env.*
+!.env.example
+
+# Test and coverage output
+TestResults/
+coverage/
+
+# OS-generated files
+.DS_Store
+Thumbs.db

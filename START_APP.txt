@@ -1,0 +1,223 @@
+================================================================================
+           DYNAMICTOPBAR - PANDUAN CEPAT MENJALANKAN APLIKASI (START APP)
+================================================================================
+
+Aplikasi: DynamicTopBar (Native Windows Desktop Overlay)
+Framework: C# + WinUI 3 + Windows App SDK (.NET 9)
+Arsitektur: x64
+
+--------------------------------------------------------------------------------
+1. SYARAT SEBELUM MENJALANKAN
+--------------------------------------------------------------------------------
+- Sistem Operasi: Windows 11 (atau Windows 10 build 1809+).
+- .NET SDK: .NET 9 SDK (sudah terinstal: 9.0.203).
+- Developer Mode: Aktif di Windows Settings (Settings > Privacy & security > For developers).
+
+--------------------------------------------------------------------------------
+2. CARA MENJALANKAN APLIKASI (PILIH SALAH SATU)
+--------------------------------------------------------------------------------
+
+[CARA 1: ONE-LINER TERMINAL (DIREKOMENDASIKAN)]
+Perintah ini otomatis menghentikan instance lama (jika masih berjalan di background),
+mengompilasi, dan langsung meluncurkan aplikasi:
+
+Buka PowerShell di folder root project:
+"c:\Users\gresn\Documents\Kumpulan Project Seru\Multi-tools_Assisten"
+
+Jalankan perintah berikut:
+   Stop-Process -Name "DynamicTopBar.App" -Force -ErrorAction SilentlyContinue; dotnet run --project "src\DynamicTopBar.App\DynamicTopBar.App.csproj" -p:Platform=x64
+
+--------------------------------------------------------------------------------
+[CARA 2: STANDARD DOTNET RUN]
+Pastikan tidak ada instance DynamicTopBar yang sedang berjalan di system tray, lalu:
+
+   dotnet run --project "src\DynamicTopBar.App\DynamicTopBar.App.csproj" -p:Platform=x64
+
+--------------------------------------------------------------------------------
+[CARA 3: MENJALANKAN EXECUTABLE (.EXE) LANGSUNG]
+Pastikan aplikasi sudah dikompilasi (build), lalu jalankan file .exe:
+
+   src\DynamicTopBar.App\bin\x64\Debug\net9.0-windows10.0.26100.0\win-x64\DynamicTopBar.App.exe
+
+Atau jalankan dari PowerShell:
+   & "src\DynamicTopBar.App\bin\x64\Debug\net9.0-windows10.0.26100.0\win-x64\DynamicTopBar.App.exe"
+
+--------------------------------------------------------------------------------
+[CARA 4: MELALUI VISUAL STUDIO 2022]
+1. Buka file solusi: DynamicTopBar.sln
+2. Pastikan target konfigurasi di toolbar atas adalah: "Debug" dan "x64".
+3. Set "DynamicTopBar.App" sebagai Startup Project.
+4. Tekan F5 (Start Debugging) atau Ctrl+F5 (Start Without Debugging).
+
+--------------------------------------------------------------------------------
+3. CARA MENGOMPILASI ULANG & TEST (PENGUJIAN UNIT)
+--------------------------------------------------------------------------------
+- Menjalankan seluruh automated unit test suite (Total 136 unit tests di 20 fixtures):
+   dotnet test DynamicTopBar.sln
+
+  Cakupan pengujian otomatis meliputi:
+  * Core State Machine & Transitions (18 tests)
+  * Media Player Models & GSMTC Adapter (6 tests)
+  * Feature Navigator & Multi-Module Boundaries (12 tests)
+  * Focus Timer Presets, Background Countdown & Tick (8 tests)
+  * Quick Launch Process Validation, URL Security & Recent Items (12 tests)
+  * System Glance Metrics, WinRT PowerManager & NetworkInfo (5 tests)
+  * Stopwatch, Lap Recording & Snapshots (6 tests)
+  * Feature Registry & Unique ID Enforcement (8 tests)
+  * Feature State Manager & Cross-Module Isolation (6 tests)
+  * Settings Service & Corruption Recovery (5 tests)
+  * Feature Preferences JSON Serialization & Ordering (7 tests)
+  * Spotify Service PKCE Auth, Token Models & Lifecycle (7 tests)
+  * Weather Service Open-Meteo, WMO Codes & Caching (4 tests)
+  * To-do List Service CRUD, Priority & File Persistence (6 tests)
+  * Calendar Service CRUD, Schedule Glance & RFC 5545 ICS (7 tests)
+  * Notes Service Auto-save, Pin Sorting, Search & Selection (6 tests)
+  * Clipboard Service Opt-In Gate, Pause/Resume & Pruning (7 tests)
+  * Reminder Service Due Tasks, Upcoming Meetings & Suppression (4 tests)
+  * Personalization & Feature Preferences Phase 3 Settings (2 tests)
+
+- Kompilasi ulang seluruh solusi:
+   dotnet build DynamicTopBar.sln -p:Platform=x64
+
+- Membersihkan cache build lama (Clean Rebuild jika ada error file terkunci):
+   dotnet clean DynamicTopBar.sln
+   dotnet build DynamicTopBar.sln -p:Platform=x64
+
+- MEMBUAT PAKET RILIS PORTABLE (RELEASE PUBLISH V1.0.0.0):
+   dotnet publish "src\DynamicTopBar.App\DynamicTopBar.App.csproj" -c Release -p:Platform=x64 -r win-x64 --self-contained true
+
+   File hasil rilis portable (.exe siap pakai tanpa instalasi) berada di:
+   src\DynamicTopBar.App\bin\x64\Release\net9.0-windows10.0.26100.0\win-x64\publish\DynamicTopBar.App.exe
+
+--------------------------------------------------------------------------------
+4. TROUBLESHOOTING & PROSEDUR PENTING
+--------------------------------------------------------------------------------
+- MASALAH: "Aplikasi langsung tertutup / tidak muncul saat dijalankan":
+  * PENYEBAB: Aplikasi memiliki proteksi Single-Instance Mutex. Jika ada instance
+    DynamicTopBar yang masih aktif di System Tray / background, instance kedua
+    akan otomatis menutup diri.
+  * SOLUSI: Hentikan proses lama dengan perintah PowerShell berikut:
+      Stop-Process -Name "DynamicTopBar.App" -Force -ErrorAction SilentlyContinue
+    Lalu jalankan kembali aplikasi.
+
+- MEMERIKSA LOG ERROR:
+  Jika terjadi crash saat startup, periksa file log error di:
+  "src\DynamicTopBar.App\bin\x64\Debug\net9.0-windows10.0.26100.0\win-x64\app_error.log"
+
+- KELUAR DARI APLIKASI SECARA BERSIH:
+  Klik kanan pada ikon DynamicTopBar di Notification Area (pojok kanan bawah layar
+  dekat jam Windows), lalu pilih "Quit DynamicTopBar".
+
+--------------------------------------------------------------------------------
+5. INTERAKSI & ARSITEKTUR MULTIFUNGSI (TAHAP 3 — SMART COMPANION & EXPANSION)
+--------------------------------------------------------------------------------
+- TAMPILAN IDLE (KAPSUL 340×44 DIPs):
+  * Left Chip: [ ♫ Music ⌵ ] Menampilkan nama app pemutar musik aktif (Spotify,
+    Chrome, Edge, Apple Music, VLC) atau nama modul aktif saat ini.
+  * Right Status: Ikon sistem Segoe Fluent (Wi-Fi, Volume, Baterai) dan jam
+    realtime Windows (format 12h/24h) yang di-update setiap detik.
+  * Fokus Keyboard: Jendela memakai WS_EX_NOACTIVATE sehingga tidak mencuri
+    fokus jendela yang sedang Anda ketik.
+
+- ANIMASI & PERTUMBUHAN PANEL (MODULAR EXPANDED 376×224 DIPs):
+  * Hover 500 ms: Kursor mouse di atas kapsul selama 500 ms memicu animasi
+    turun halus (slide-fade down 220 ms) membuka container modular.
+  * Sub-Header Navigasi:
+    - Kiri: Ikon fitur aktif + Nama fitur.
+    - Kanan: Tombol Previous (<), Indikator Halaman (misal "1 / 11"), Tombol Next (>), dan Tombol Gear Preferences (⚙).
+    - Navigasi Non-Wrapping: Tombol Previous disable di halaman pertama, Next disable di halaman terakhir.
+    - Sembunyikan Panah Otomatis: Jika hanya 1 modul yang aktif, tombol panah otomatis disembunyikan.
+    - Shortcut Keyboard:
+      * Panah Kiri (Left) / Kanan (Right) untuk berpindah fitur.
+      * Escape (Esc) untuk menutup menu Preferences atau menutup panel Top Bar.
+    - Persistent State: Berpindah halaman tidak mereset pemutaran media, timer, stopwatch, atau state modul lain.
+
+- 11 MODUL FITUR LENGKAP TERDAFTAR & TERIMPLEMENTASI:
+  1. Media Player (`media`) — [Implemented]:
+     * Universal Media Controller Windows GSMTC untuk semua aplikasi musik (Spotify, Chrome, Apple Music, VLC).
+     * Tanpa perlu konfigurasi API / login akun.
+     * Artwork album 56×56 dengan fallback ikon, title/artist dengan text trimming.
+     * Progress bar, timestamp putar & sisa, kontrol Play/Pause, Next, Prev, Favorite.
+     * Device Audio Output: Klik tombol speaker di kanan bawah untuk membuka Sound Settings (`ms-settings:sound`).
+
+  2. Spotify (`spotify`) — [Implemented in Phase 2]:
+     * Lapisan ganda: Gunakan Media Player untuk pemutaran desktop instan tanpa login, ATAU hubungkan langsung akun via Spotify Web API + OAuth 2.0 PKCE.
+     * Autentikasi PKCE Mandiri: Membuka browser pengguna dan mendengarkan authorization code di `http://127.0.0.1:8888/callback/`.
+     * Penyimpanan Kredensial Aman: Token dienkripsi menggunakan Windows DPAPI (`%LocalAppData%\DynamicTopBar\spotify_tokens.dat`).
+     * Status Akun: Menampilkan profil pengguna dan badge tipe akun (Free vs Premium).
+     * Catatan Spotify Developer Mode 2026: Batas maksimal 5 pengguna terdaftar di dashboard developer Spotify, dan kontrol endpoint Web API pemutaran lagu memerlukan akun Spotify Premium.
+
+  3. Clock & Date (`clock`) — [Implemented]:
+     * Jam digital besar real-time (`hh:mm:ss tt` atau `HH:mm:ss`) berdetak tiap detik.
+     * Hari dan tanggal lengkap (`dddd, MMMM d, yyyy`).
+     * Kartu informasi Zona Waktu Lokal Windows via `TimeZoneInfo.Local` (misal UTC+08:00 / Central Indonesia Time).
+
+  4. Weather (`weather`) — [Implemented in Phase 2]:
+     * Integrasi Open-Meteo Geocoding & Forecast API (gratis, open-source, tanpa memerlukan API key rahasia).
+     * Input Kota: Ketik nama kota (misal "Jakarta", "Tokyo", "London", "Bandung") lalu tekan Enter atau klik Search.
+     * Informasi Cuaca: Suhu real-time (°C atau °F), deskripsi kondisi cuaca dan glif Segoe Fluent, persentase kelembapan, curah hujan (mm).
+     * Prakiraan 3 Hari: Kartu ringkas menampilkan nama hari, ikon cuaca, dan suhu maksimum untuk 3 hari ke depan.
+     * Perlindungan Cache & Rate-Limit: Pembatasan refresh minimum 60 detik untuk efisiensi API, disertai penyimpanan offline cache di `%LocalAppData%\DynamicTopBar\weather_cache.json`.
+
+  5. To-do List (`todo`) — [Implemented in Phase 2]:
+     * Checklist tugas cepat dengan prioritas: Low, Normal, High.
+     * Input Cepat: Ketik nama tugas di kotak input dan tekan Enter.
+     * Penanda Prioritas Tinggi: Tugas berprioritas "High" diberi badge merah dan otomatis diurutkan di bagian paling atas.
+     * Interaksi Tugas: Klik checkbox untuk menyelesaikan/mencoret tugas; klik ikon sampah untuk menghapus tugas.
+     * Pembersihan Massal: Tombol "Clear Done" untuk menghapus seluruh tugas yang telah selesai dalam satu klik.
+     * Penyimpanan Lokal Persisten: Disimpan secara atomik dalam file JSON lokal di `%LocalAppData%\DynamicTopBar\todos.json` tanpa akun cloud dan tanpa telemetri.
+
+  6. Focus Timer (`focus`) — [Implemented]:
+     * Tampilan countdown digital besar (misal "25:00") dan progress bar halus.
+     * Preset cepat: "25m Work", "5m Break", "50m Deep".
+     * Latar Belakang Mandiri: Timer tetap menghitung mundur di background saat Anda berpindah ke modul lain.
+
+  7. Quick Launch (`quick-launch`) — [Implemented]:
+     * Pintasan cepat ke aplikasi & alat sistem Windows: Files, Browser, Terminal, Calculator, Settings, Task Manager.
+     * Pencatatan riwayat peluncuran terbaru (Recent items) dan tombol pembersihan riwayat.
+     * Validasi target aman terhadap injeksi skema URI berbahaya.
+
+  8. System Glance (`system-glance`) — [Implemented]:
+     * Dashboard metrik sistem 2×2:
+       - Kartu 1: Jam & Tanggal real-time.
+       - Kartu 2: Status Baterai (Persentase & Charging/Discharging) via WinRT PowerManager.
+       - Kartu 3: Status Jaringan (Wi-Fi / Ethernet / Disconnected) via WinRT NetworkInformation.
+       - Kartu 4: Nama Perangkat PC dan Uptime sistem Windows.
+
+  9. Calendar (`calendar`) — [Implemented in Phase 3]:
+     * Hitung Mundur Rapat: Badge ringkas menampilkan status acara terdekat ("In 35m: Team Standup", "Now: Workshop").
+     * Agenda Hari Ini: Daftar ringkas kegiatan dengan tanggal, rentang waktu, dan lokasi.
+     * Tambah Acara: Tombol "+ Event" instan untuk menjadwalkan kegiatan lokal.
+     * Import & Export iCalendar (RFC 5545 .ics): Dukungan impor file `import.ics` lokal dan ekspor seluruh jadwal ke `calendar_export.ics`.
+     * Penyimpanan Lokal Persisten: Disimpan di `%LocalAppData%\DynamicTopBar\calendar_events.json` tanpa akun eksternal.
+
+  10. Quick Notes (`notes`) — [Implemented in Phase 3]:
+     * Scratchpad Cepat: Judul catatan dan editor multi-baris langsung di panel atas.
+     * Auto-Save Cerdas: Penyimpanan otomatis debounced 400ms setiap Anda mengetik.
+     * Pin Catatan: Klik ikon pin (📌) untuk menyematkan catatan penting di urutan teratas.
+     * Navigasi & Hapus: Tombol "Notes List" untuk berpindah antar catatan dan tombol "Delete" untuk menghapus.
+     * Penyimpanan Lokal Persisten: File JSON atomik di `%LocalAppData%\DynamicTopBar\notes.json`.
+
+  11. Clipboard (`clipboard`) — [Implemented in Phase 3]:
+     * Gerbang Privasi Ketat (Strict Opt-In Gate): Fitur nonaktif secara default. Aplikasi tidak akan merekam teks sebelum Anda menekan "Enable Clipboard (Opt-In)".
+     * Riwayat 25 Cuplikan Teks: Menampilkan potongan teks yang disalin di Windows.
+     * Salin Ulang Instan: Klik cuplikan mana saja untuk menyalin kembali ke clipboard sistem.
+     * Pin & Pause: Tombol Pause/Resume perekaman dan Pin perlindungan agar tidak terhapus saat menekan "Clear".
+     * Nol Telemetri: Disimpan hanya secara lokal di `%LocalAppData%\DynamicTopBar\clipboard_history.json`, tanpa akses internet dan tanpa keylogger.
+
+- PENGATURAN MODUL & PERSONALISASI (PREFERENCES & PERSONALIZATION):
+  * Akses Cepat: Klik ikon roda gigi (⚙) di kanan sub-header.
+  * Pemilih Modul: Centang/Hapus Centang dari 11 modul yang tersedia di grid scrollable 2 kolom.
+  * Format Jam: Toggle format 24 jam ("14:25") atau 12 jam ("2:25 PM") secara instan di idle bar dan clock card.
+  * Satuan Suhu: Toggle satuan Celsius (°C) atau Fahrenheit (°F) untuk modul Weather.
+  * Pengingat Tugas & Kalender: Toggle notifikasi otomatis untuk tugas To-do jatuh tempo (60m) dan rapat (15m).
+  * Pengaturan Privasi Clipboard: Toggle opt-in clipboard history kapan saja.
+  * Tombol Hapus Semua Data Lokal (Clear All Local App Data): Menghapus seluruh file JSON lokal di `%LocalAppData%\DynamicTopBar` dengan satu klik aman.
+  * Tersimpan Otomatis: Preferensi langsung disimpan ke `%LocalAppData%\DynamicTopBar\preferences.json`.
+  * Safe Fallback: Jika semua modul dinonaktifkan, aplikasi menampilkan layar diagnostik bersih "No Modules Enabled".
+
+- COLLAPSE DELAY (4000 ms) & RE-ENTRY CANCELLATION:
+  * Menutup otomatis setelah 4 detik saat mouse keluar dari area jendela.
+  * Mengarahkan kembali mouse membatalkan penutupan seketika.
+  * Berinteraksi dengan kontrol apa pun mereset timer penutupan.
+================================================================================
