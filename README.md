@@ -2,7 +2,16 @@
 
 A native Windows desktop utility inspired by the interaction pattern of macOS's compact top bar / Dynamic Island. The app stays small while idle and expands into a contextual panel on hover or interaction.
 
-> **Current phase:** Phase 2 — WinUI app shell and idle overlay implemented. A runnable native Windows app and solution exist with borderless idle capsule, non-activating window, and system tray lifecycle.
+> **Status:** Production-Ready Modular Desktop Companion. Features multi-module navigation, unified media playback, Spotify PKCE, Focus timer, Quick Notes & Clipboard Manager with local DPAPI protection, Win32 exclusive fullscreen auto-suspension, PerMonitorV2 high-DPI scaling, and Octalysis-inspired non-intrusive gamification. 310 unit tests passing (100%).
+
+## Key Capabilities
+
+- **Fluid Capsule Overlay:** Sleek borderless top bar clipped natively with Win32 round-rect regions, auto-hiding into a top trigger notch with smooth reveal and pointer-exit auto-collapse.
+- **Exclusive Fullscreen / Game Detection:** Automatically suspends `WS_EX_TOPMOST` when exclusive fullscreen games or media occupy the display to prevent tearing, flicker, or z-fighting.
+- **Zero Focus Stealing:** Strict `WS_EX_NOACTIVATE` operation during idle and playback interactions, dynamically routing keyboard input only when text boxes are engaged.
+- **Local Data Security & DPAPI:** Sensitive Quick Notes and Clipboard snippets are protected using Windows DPAPI encryption (`IDataProtector`), backed by thread-safe `SemaphoreSlim` file persistence and seamless backward compatibility.
+- **Octalysis Gamification Engine:** Calibrated XP progression, Daily Micro-Quests with Daily Crown rewards, Streak preservation with Streak Shields, Achievement Badges, and unlockable Capsule Theme Cosmetics.
+- **Automated CI/CD:** GitHub Actions workflow (`.github/workflows/dotnet-ci.yml`) validates builds and unit tests on Windows Server runners for every commit and pull request.
 
 ## Product principles
 

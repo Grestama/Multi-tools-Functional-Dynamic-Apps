@@ -46,6 +46,15 @@ Modul pelengkap yang meningkatkan fleksibilitas dan kenyamanan desktop companion
 | `reminders` | Reminders | Evaluasi tugas To-do jatuh tempo (60m) & rapat kalender (15m) | IReminderService, supresi ID notifikasi agar tidak spam | **Implemented (Phase 3)** |
 | `personalization`| Personalization & Privacy | Format jam 24 jam / 12 jam, satuan suhu (°C / °F), tombol hapus data lokal | SettingsContentHost & FeaturePreferences | **Implemented (Phase 3)** |
 
+### Tier 3 — Integrasi Lanjutan & Eksplorasi
+
+| ID | Modul | Fitur & Konten | Dependensi & Catatan | Status |
+|---|---|---|---|---|
+| `download-transfer` | Transfer Progress | Pemantauan progres unduhan / transfer file | Integrasi IO / background transfer; opt-in | Eksplorasi |
+| `system-performance` | Performance Glance | CPU/RAM/Network visual trend | Polling hemat daya (1-2s sampling) | Eksplorasi |
+| `custom-shortcuts` | Custom Actions | Aksi/tautan yang dapat ditentukan pengguna | Validasi command injeksi ketat | Eksplorasi |
+| `gamification` | Gamifikasi Octalysis | XP, Streaks, Shields, Daily Quests, Badges, Visual Cosmetics | Mesin gamifikasi berbasis event lokal, zero telemetri | **Tahap Implementasi** |
+
 ## Feature boundary: what the app should not promise
 
 - Do not claim universal control of every third-party app.

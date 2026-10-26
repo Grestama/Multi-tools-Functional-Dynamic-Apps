@@ -1,0 +1,29 @@
+name: .NET 9 & WinUI 3 CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET 9 SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Restore Dependencies
+      run: dotnet restore DynamicTopBar.sln
+
+    - name: Build Solution (Release x64)
+      run: dotnet build DynamicTopBar.sln --configuration Release --no-restore -p:Platform=x64
+
+    - name: Run Unit Tests
+      run: dotnet test tests/DynamicTopBar.Tests/DynamicTopBar.Tests.csproj --configuration Release --no-build --verbosity normal

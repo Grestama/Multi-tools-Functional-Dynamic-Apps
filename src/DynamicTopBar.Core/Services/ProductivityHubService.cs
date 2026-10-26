@@ -17,6 +17,7 @@ public sealed class ProductivityHubService : IProductivityHubService
     private readonly ITodoService _todoService;
     private readonly INotesService _notesService;
     private readonly IFocusTimerService _focusTimerService;
+    private readonly IGamificationService? _gamificationService;
     private readonly object _lock = new();
 
     private ProductivityGlance _currentGlance = ProductivityGlance.Empty();
@@ -38,18 +39,25 @@ public sealed class ProductivityHubService : IProductivityHubService
         ICalendarService calendarService,
         ITodoService todoService,
         INotesService notesService,
-        IFocusTimerService focusTimerService)
+        IFocusTimerService focusTimerService,
+        IGamificationService? gamificationService = null)
     {
         _calendarService = calendarService ?? throw new ArgumentNullException(nameof(calendarService));
         _todoService = todoService ?? throw new ArgumentNullException(nameof(todoService));
         _notesService = notesService ?? throw new ArgumentNullException(nameof(notesService));
         _focusTimerService = focusTimerService ?? throw new ArgumentNullException(nameof(focusTimerService));
+        _gamificationService = gamificationService;
 
         _calendarService.GlanceChanged += OnCalendarGlanceChanged;
         _todoService.ItemsChanged += OnTodoItemsChanged;
         _notesService.NotesChanged += OnNotesChanged;
         _notesService.SelectedNoteChanged += OnSelectedNoteChanged;
         _focusTimerService.SnapshotChanged += OnFocusSnapshotChanged;
+
+        if (_gamificationService != null)
+        {
+            _gamificationService.ProgressionChanged += OnProgressionChanged;
+        }
     }
 
     public Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -120,7 +128,8 @@ public sealed class ProductivityHubService : IProductivityHubService
             ActiveNote = activeNote,
             FocusTimer = focusSnapshot,
             PendingReminderCount = pendingReminders,
-            SummaryText = summary
+            SummaryText = summary,
+            GamificationProgression = _gamificationService?.Snapshot
         };
 
         CurrentGlance = newGlance;
@@ -152,6 +161,7 @@ public sealed class ProductivityHubService : IProductivityHubService
     private void OnNotesChanged(object? sender, IReadOnlyList<NoteItem> e) => RefreshGlance();
     private void OnSelectedNoteChanged(object? sender, NoteItem? e) => RefreshGlance();
     private void OnFocusSnapshotChanged(object? sender, FocusTimerSnapshot e) => RefreshGlance();
+    private void OnProgressionChanged(object? sender, UserProgressionSnapshot e) => RefreshGlance();
 
     public void Dispose()
     {
@@ -163,5 +173,10 @@ public sealed class ProductivityHubService : IProductivityHubService
         _notesService.NotesChanged -= OnNotesChanged;
         _notesService.SelectedNoteChanged -= OnSelectedNoteChanged;
         _focusTimerService.SnapshotChanged -= OnFocusSnapshotChanged;
+
+        if (_gamificationService != null)
+        {
+            _gamificationService.ProgressionChanged -= OnProgressionChanged;
+        }
     }
 }

@@ -51,6 +51,7 @@ public sealed partial class TopBarWindow : Window, IDisposable
     private readonly IShortcutService _shortcutService;
     private readonly ICommandPaletteService _commandPaletteService;
     private readonly INotificationService _notificationService;
+    private readonly IGamificationService _gamificationService;
     private readonly IProductivityHubService _productivityHubService;
     private readonly IToolRegistry _toolRegistry;
     private readonly IDeveloperUtilitiesService _devUtilsService;
@@ -78,6 +79,7 @@ public sealed partial class TopBarWindow : Window, IDisposable
     private bool _isConcealed;
     private bool _isPointerOver;
     private bool _isInputFocused;
+    private bool _isSuspendedForFullscreen;
     private SettingsWindow? _settingsWindow;
     private CommandPaletteWindow? _commandPaletteWindow;
     private DispatcherTimer? _autoHideTimer;
@@ -104,6 +106,7 @@ public sealed partial class TopBarWindow : Window, IDisposable
     public IShortcutService ShortcutService => _shortcutService;
     public ICommandPaletteService CommandPaletteService => _commandPaletteService;
     public INotificationService NotificationService => _notificationService;
+    public IGamificationService GamificationService => _gamificationService;
     public IProductivityHubService ProductivityHubService => _productivityHubService;
     public IToolRegistry ToolRegistry => _toolRegistry;
     public IDeveloperUtilitiesService DeveloperUtilitiesService => _devUtilsService;
@@ -137,6 +140,7 @@ public sealed partial class TopBarWindow : Window, IDisposable
         IShortcutService? shortcutService = null,
         ICommandPaletteService? commandPaletteService = null,
         INotificationService? notificationService = null,
+        IGamificationService? gamificationService = null,
         IProductivityHubService? productivityHubService = null,
         IToolRegistry? toolRegistry = null,
         IDeveloperUtilitiesService? devUtilsService = null,
@@ -180,18 +184,27 @@ public sealed partial class TopBarWindow : Window, IDisposable
         _weatherService = weatherService ?? new WeatherService(new OpenMeteoWeatherProvider());
         _todoService = todoService ?? new TodoService(new FileTodoRepository());
         _calendarService = calendarService ?? new CalendarService(new FileCalendarRepository());
-        _notesService = notesService ?? new NotesService(new FileNotesRepository());
-        _clipboardService = clipboardService ?? new ClipboardService(new WindowsClipboardAdapter());
+        var dataProtector = new WindowsDpapiDataProtector();
+        _notesService = notesService ?? new NotesService(new FileNotesRepository(dataProtector: dataProtector));
+        _clipboardService = clipboardService ?? new ClipboardService(new WindowsClipboardAdapter(), dataProtector: dataProtector);
         _reminderService = reminderService ?? new ReminderService(_todoService, _calendarService);
 
         _shortcutService = shortcutService ?? new ShortcutService();
         _commandPaletteService = commandPaletteService ?? new CommandPaletteService();
         _notificationService = notificationService ?? new NotificationService();
-        _productivityHubService = productivityHubService ?? new ProductivityHubService(_calendarService, _todoService, _notesService, _focusTimerService);
-
         _devUtilsService = devUtilsService ?? new DeveloperUtilitiesService();
         _fileToolsService = fileToolsService ?? new FileToolsService();
         _imageToolsService = imageToolsService ?? new WindowsImageToolsService();
+
+        _gamificationService = gamificationService ?? new GamificationEngineService(
+            focusTimerService: _focusTimerService,
+            todoService: _todoService,
+            devUtilsService: _devUtilsService);
+        _gamificationService.LevelUp += OnLevelUp;
+        _gamificationService.BadgeUnlocked += OnBadgeUnlocked;
+
+        _productivityHubService = productivityHubService ?? new ProductivityHubService(
+            _calendarService, _todoService, _notesService, _focusTimerService, _gamificationService);
         _toolRegistry = toolRegistry ?? new ToolRegistry();
 
         foreach (var tool in StandardDesktopTools.CreateAll(_devUtilsService, _fileToolsService, _imageToolsService))
@@ -416,6 +429,85 @@ public sealed partial class TopBarWindow : Window, IDisposable
     private void OnClockTimerTick(object? sender, object e)
     {
         UpdateClock();
+        CheckForegroundFullscreen();
+    }
+
+    private void CheckForegroundFullscreen()
+    {
+        if (_isDisposed) return;
+
+        try
+        {
+            IntPtr fgHwnd = Win32Interop.GetForegroundWindow();
+            if (fgHwnd == IntPtr.Zero || fgHwnd == _hwnd)
+            {
+                RestoreFromFullscreenSuspension();
+                return;
+            }
+
+            IntPtr shell = Win32Interop.GetShellWindow();
+            IntPtr desktop = Win32Interop.GetDesktopWindow();
+            if (fgHwnd == shell || fgHwnd == desktop)
+            {
+                RestoreFromFullscreenSuspension();
+                return;
+            }
+
+            if (!Win32Interop.GetWindowRect(fgHwnd, out var fgRect))
+            {
+                RestoreFromFullscreenSuspension();
+                return;
+            }
+
+            IntPtr fgMon = Win32Interop.MonitorFromWindow(fgHwnd, Win32Interop.MONITOR_DEFAULTTONEAREST);
+            IntPtr barMon = Win32Interop.MonitorFromWindow(_hwnd, Win32Interop.MONITOR_DEFAULTTONEAREST);
+
+            if (fgMon != barMon)
+            {
+                // Fullscreen window is on a different monitor
+                RestoreFromFullscreenSuspension();
+                return;
+            }
+
+            var mi = new Win32Interop.MONITORINFO { cbSize = System.Runtime.InteropServices.Marshal.SizeOf<Win32Interop.MONITORINFO>() };
+            if (Win32Interop.GetMonitorInfo(fgMon, ref mi))
+            {
+                // Verify if the active window covers the entire active monitor
+                bool isFullscreen = fgRect.Left <= mi.rcMonitor.Left &&
+                                    fgRect.Top <= mi.rcMonitor.Top &&
+                                    fgRect.Right >= mi.rcMonitor.Right &&
+                                    fgRect.Bottom >= mi.rcMonitor.Bottom;
+
+                if (isFullscreen)
+                {
+                    if (!_isSuspendedForFullscreen)
+                    {
+                        _isSuspendedForFullscreen = true;
+                        // Suspend topmost to prevent z-fighting, flicker, and screen tearing during gaming/media playback
+                        Win32Interop.SetWindowPos(_hwnd, Win32Interop.HWND_NOTOPMOST, 0, 0, 0, 0,
+                            Win32Interop.SWP_NOMOVE | Win32Interop.SWP_NOSIZE | Win32Interop.SWP_NOACTIVATE);
+                    }
+                }
+                else
+                {
+                    RestoreFromFullscreenSuspension();
+                }
+            }
+        }
+        catch
+        {
+            // Defensive recovery
+        }
+    }
+
+    private void RestoreFromFullscreenSuspension()
+    {
+        if (_isSuspendedForFullscreen)
+        {
+            _isSuspendedForFullscreen = false;
+            Win32Interop.SetWindowPos(_hwnd, Win32Interop.HWND_TOPMOST, 0, 0, 0, 0,
+                Win32Interop.SWP_NOMOVE | Win32Interop.SWP_NOSIZE | Win32Interop.SWP_NOACTIVATE);
+        }
     }
 
     public void HandleSystemTimeChanged()
@@ -1177,6 +1269,7 @@ public sealed partial class TopBarWindow : Window, IDisposable
         {
             _isInputFocused = true;
             _autoHideTimer?.Stop();
+            Win32Interop.SetForegroundWindow(_hwnd);
         }
     }
 
@@ -1742,6 +1835,12 @@ public sealed partial class TopBarWindow : Window, IDisposable
         try
         {
             await _clipboardService.InitializeAsync(cancellationToken);
+        }
+        catch { }
+
+        try
+        {
+            await _gamificationService.InitializeAsync(cancellationToken);
         }
         catch { }
 
@@ -3522,7 +3621,15 @@ public sealed partial class TopBarWindow : Window, IDisposable
 
     private void RenderProductivityGlance(ProductivityGlance glance)
     {
-        ProductivitySummaryText.Text = glance.SummaryText;
+        if (glance.GamificationProgression != null)
+        {
+            var prog = glance.GamificationProgression;
+            ProductivitySummaryText.Text = $"{glance.SummaryText}  •  ⭐ Lv.{prog.CurrentLevel} ({prog.CurrentLevelXp}/{prog.NextLevelRequiredXp} XP)  🔥 {prog.CurrentStreakDays}d (🛡️{prog.StreakShieldCount})";
+        }
+        else
+        {
+            ProductivitySummaryText.Text = glance.SummaryText;
+        }
 
         if (glance.ActiveTodos.Count > 0)
         {
@@ -3547,6 +3654,30 @@ public sealed partial class TopBarWindow : Window, IDisposable
         {
             ProductivitySchedulePreviewText.Text = "No upcoming events today";
         }
+    }
+
+    private void OnLevelUp(object? sender, int level)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            _notificationService.Post(
+                $"🎉 Level {level} Reached!",
+                $"Congratulations! You unlocked new capsule cosmetics at Level {level}.",
+                "Gamification",
+                NotificationPriority.Normal);
+        });
+    }
+
+    private void OnBadgeUnlocked(object? sender, BadgeDescriptor badge)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            _notificationService.Post(
+                $"🏆 Badge Unlocked: {badge.Title}",
+                badge.Description,
+                "Gamification",
+                NotificationPriority.Normal);
+        });
     }
 
     // =========================================================================
@@ -3704,6 +3835,7 @@ public sealed partial class TopBarWindow : Window, IDisposable
         {
             _lastToolResultText = result.OutputText;
             ToolStatusText.Text = "Success.";
+            _ = _gamificationService.RecordToolUsedAsync(_selectedTool.DisplayName);
             ToolOutputSnippetText.Text = result.OutputText ?? "(Completed with no text output)";
             if (_selectedTool.Id is "tool-json-format" or "tool-base64" or "tool-text-format" or "tool-hash")
             {
@@ -4246,6 +4378,10 @@ public sealed partial class TopBarWindow : Window, IDisposable
         _workflowEngine.Dispose();
         _aiAssistantService.Dispose();
         _personalizationService.Dispose();
+        _gamificationService.LevelUp -= OnLevelUp;
+        _gamificationService.BadgeUnlocked -= OnBadgeUnlocked;
+        _gamificationService.Dispose();
+        RestoreFromFullscreenSuspension();
         _diagnosticsService.Dispose();
     }
 

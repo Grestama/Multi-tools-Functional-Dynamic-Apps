@@ -10,11 +10,12 @@ using DynamicTopBar.Core.Models;
 namespace DynamicTopBar.Core.Services;
 
 /// <summary>
-/// File-based JSON implementation of ITodoRepository with atomic writes and corruption recovery.
+/// File-based JSON implementation of ITodoRepository with atomic writes, semaphore-based concurrency control, and corruption recovery.
 /// </summary>
 public sealed class FileTodoRepository : ITodoRepository
 {
     private readonly string _filePath;
+    private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = true };
 
     public FileTodoRepository(string? filePath = null)
@@ -27,13 +28,14 @@ public sealed class FileTodoRepository : ITodoRepository
 
     public async Task<IReadOnlyList<TodoItem>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        if (!File.Exists(_filePath))
-        {
-            return Array.Empty<TodoItem>();
-        }
-
+        await _semaphore.WaitAsync(cancellationToken);
         try
         {
+            if (!File.Exists(_filePath))
+            {
+                return Array.Empty<TodoItem>();
+            }
+
             string json = await File.ReadAllTextAsync(_filePath, cancellationToken);
             if (string.IsNullOrWhiteSpace(json))
             {
@@ -48,31 +50,43 @@ public sealed class FileTodoRepository : ITodoRepository
             // Recover safely from corrupted files
             return Array.Empty<TodoItem>();
         }
+        finally
+        {
+            _semaphore.Release();
+        }
     }
 
     public async Task SaveAllAsync(IEnumerable<TodoItem> items, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(items);
 
-        string? directory = Path.GetDirectoryName(_filePath);
-        if (!string.IsNullOrEmpty(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        string tempPath = $"{_filePath}.tmp_{Guid.NewGuid():N}";
+        await _semaphore.WaitAsync(cancellationToken);
         try
         {
-            string json = JsonSerializer.Serialize(items, _jsonOptions);
-            await File.WriteAllTextAsync(tempPath, json, cancellationToken);
-            File.Move(tempPath, _filePath, overwrite: true);
+            string? directory = Path.GetDirectoryName(_filePath);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            string tempPath = $"{_filePath}.tmp_{Guid.NewGuid():N}";
+            try
+            {
+                string json = JsonSerializer.Serialize(items, _jsonOptions);
+                await File.WriteAllTextAsync(tempPath, json, cancellationToken);
+                File.Move(tempPath, _filePath, overwrite: true);
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                {
+                    try { File.Delete(tempPath); } catch { }
+                }
+            }
         }
         finally
         {
-            if (File.Exists(tempPath))
-            {
-                try { File.Delete(tempPath); } catch { }
-            }
+            _semaphore.Release();
         }
     }
 }

@@ -10,11 +10,12 @@ using DynamicTopBar.Core.Models;
 namespace DynamicTopBar.Core.Services;
 
 /// <summary>
-/// File-based JSON persistence for local calendar events with atomic writes.
+/// File-based JSON persistence for local calendar events with atomic writes and semaphore-based concurrency control.
 /// </summary>
 public sealed class FileCalendarRepository : ICalendarRepository
 {
     private readonly string _filePath;
+    private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = true };
 
     public FileCalendarRepository(string? filePath = null)
@@ -27,13 +28,14 @@ public sealed class FileCalendarRepository : ICalendarRepository
 
     public async Task<IReadOnlyList<CalendarEvent>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        if (!File.Exists(_filePath))
-        {
-            return Array.Empty<CalendarEvent>();
-        }
-
+        await _semaphore.WaitAsync(cancellationToken);
         try
         {
+            if (!File.Exists(_filePath))
+            {
+                return Array.Empty<CalendarEvent>();
+            }
+
             string json = await File.ReadAllTextAsync(_filePath, cancellationToken);
             if (string.IsNullOrWhiteSpace(json))
             {
@@ -47,31 +49,43 @@ public sealed class FileCalendarRepository : ICalendarRepository
         {
             return Array.Empty<CalendarEvent>();
         }
+        finally
+        {
+            _semaphore.Release();
+        }
     }
 
     public async Task SaveAllAsync(IReadOnlyList<CalendarEvent> events, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(events);
 
-        string? dir = Path.GetDirectoryName(_filePath);
-        if (!string.IsNullOrEmpty(dir))
-        {
-            Directory.CreateDirectory(dir);
-        }
-
-        string tempPath = $"{_filePath}.tmp_{Guid.NewGuid():N}";
+        await _semaphore.WaitAsync(cancellationToken);
         try
         {
-            string json = JsonSerializer.Serialize(events, _jsonOptions);
-            await File.WriteAllTextAsync(tempPath, json, cancellationToken);
-            File.Move(tempPath, _filePath, overwrite: true);
+            string? dir = Path.GetDirectoryName(_filePath);
+            if (!string.IsNullOrEmpty(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            string tempPath = $"{_filePath}.tmp_{Guid.NewGuid():N}";
+            try
+            {
+                string json = JsonSerializer.Serialize(events, _jsonOptions);
+                await File.WriteAllTextAsync(tempPath, json, cancellationToken);
+                File.Move(tempPath, _filePath, overwrite: true);
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                {
+                    try { File.Delete(tempPath); } catch { }
+                }
+            }
         }
         finally
         {
-            if (File.Exists(tempPath))
-            {
-                try { File.Delete(tempPath); } catch { }
-            }
+            _semaphore.Release();
         }
     }
 }

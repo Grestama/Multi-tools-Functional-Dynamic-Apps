@@ -3,7 +3,17 @@
 [Oo]bj/
 [Dd]ebug/
 [Rr]elease/
+publish/
 artifacts/
+AppPackages/
+BundleArtifacts/
+_pkg/
+
+# Logs, temporary, and local data files
+*.log
+*.dat
+*.tmp
+*.crash
 
 # IDE and user-specific files
 .vs/

@@ -22,6 +22,8 @@ public sealed class ClipboardService : IClipboardService
     private readonly string _persistencePath;
     private readonly string _prefsPersistencePath;
     private readonly IClipboardPlatformAdapter? _platformAdapter;
+    private readonly IDataProtector _dataProtector;
+    private readonly SemaphoreSlim _fileSemaphore = new(1, 1);
     private readonly object _lock = new();
     private readonly List<ClipboardSnippet> _snippets = new();
 
@@ -86,9 +88,10 @@ public sealed class ClipboardService : IClipboardService
     public event EventHandler<ClipboardState>? StateChanged;
     public event EventHandler<IReadOnlyList<ClipboardSnippet>>? SnippetsChanged;
 
-    public ClipboardService(IClipboardPlatformAdapter? platformAdapter = null, string? persistencePath = null)
+    public ClipboardService(IClipboardPlatformAdapter? platformAdapter = null, string? persistencePath = null, IDataProtector? dataProtector = null)
     {
         _platformAdapter = platformAdapter;
+        _dataProtector = dataProtector ?? NoOpDataProtector.Instance;
         string basePath = persistencePath ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "DynamicTopBar",
@@ -108,11 +111,13 @@ public sealed class ClipboardService : IClipboardService
 
         if (File.Exists(_persistencePath))
         {
+            await _fileSemaphore.WaitAsync(cancellationToken);
             try
             {
-                string json = await File.ReadAllTextAsync(_persistencePath, cancellationToken);
-                if (!string.IsNullOrWhiteSpace(json))
+                string rawText = await File.ReadAllTextAsync(_persistencePath, cancellationToken);
+                if (!string.IsNullOrWhiteSpace(rawText))
                 {
+                    string json = _dataProtector.Unprotect(rawText);
                     var loaded = JsonSerializer.Deserialize<List<ClipboardSnippet>>(json);
                     if (loaded != null)
                     {
@@ -127,6 +132,10 @@ public sealed class ClipboardService : IClipboardService
             catch
             {
                 // Ignore corrupt clipboard cache
+            }
+            finally
+            {
+                _fileSemaphore.Release();
             }
         }
 
@@ -551,6 +560,7 @@ public sealed class ClipboardService : IClipboardService
     {
         if (string.IsNullOrEmpty(_persistencePath)) return;
 
+        await _fileSemaphore.WaitAsync();
         try
         {
             string? dir = Path.GetDirectoryName(_persistencePath);
@@ -566,10 +576,11 @@ public sealed class ClipboardService : IClipboardService
             }
 
             string json = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true });
+            string payload = _dataProtector.Protect(json);
             string tempPath = $"{_persistencePath}.tmp_{Guid.NewGuid():N}";
             try
             {
-                await File.WriteAllTextAsync(tempPath, json);
+                await File.WriteAllTextAsync(tempPath, payload);
                 File.Move(tempPath, _persistencePath, overwrite: true);
             }
             finally
@@ -583,6 +594,10 @@ public sealed class ClipboardService : IClipboardService
         catch
         {
             // Ignore persistence write errors
+        }
+        finally
+        {
+            _fileSemaphore.Release();
         }
     }
 

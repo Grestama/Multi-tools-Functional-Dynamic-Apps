@@ -15,6 +15,7 @@ public record ProductivityGlance
     public FocusTimerSnapshot FocusTimer { get; init; } = new FocusTimerSnapshot();
     public int PendingReminderCount { get; init; }
     public string SummaryText { get; init; } = "Productivity Hub Ready";
+    public UserProgressionSnapshot? GamificationProgression { get; init; }
 
     public static ProductivityGlance Empty() => new();
 }
